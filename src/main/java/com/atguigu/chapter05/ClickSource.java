@@ -1,47 +1,42 @@
 package com.atguigu.chapter05;
 
-import org.apache.flink.streaming.api.datastream.DataStreamSource;
-import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.source.SourceFunction;
 
-import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Random;
 
 /**
  * @author:hjc
- * @create 2022/8/26 16:46:08
+ * @create 2022/8/31 10:39:08
+ * SourceFunction接口定义的数据源，并行度只能设置为1，如果数据源设置大于1的并行度，则会抛出异常
  */
 
-public class ClickSource {
-    public static void main(String[] args) throws Exception {
-        // 1.创建执行环境，设置并行度为1
-        StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setBufferTimeout(1);
+public class ClickSource implements SourceFunction<Event> {
 
-        // 2.从集合中读取数据
-        // 2.1 构建集合
-        ArrayList<Event> clicks = new ArrayList<>();
-        clicks.add(new Event("Mary", "./home", 1000L));
-        clicks.add(new Event("Bob", "./cart", 1000L));
+    // 声明一个布尔变量，作为空置数据生成的标识位
+    private Boolean running = true;
+    private Random random = new Random();
 
-        DataStreamSource<Event> stream = env.fromCollection(clicks);
+    @Override
+    public void run(SourceContext<Event> ctx) throws Exception {
+        String[] users = {"Marry", "Alice", "Bob", "Cry"};
+        String[] urls = {"./home", "./cart", "./fav", "./prod?id=1", "./prod?id=2"};
 
-        stream.print("1");
-
-        // 2.2 不构建集合
-        DataStreamSource<Event> stream2 = env.fromElements(
-                new Event("Mary", "./home", 1000L),
-                new Event("Bob", "./cart", 1000L)
-        );
-
-        stream2.print("2");
-
-        // 3. 从文件中读取
-        DataStreamSource<String> stream3 = env.readTextFile("input/clicks.csv");
-        stream3.print("3");
-
-        // 4. 从Socket读取数据
-        DataStreamSource<String> stream4 = env.socketTextStream("hadoop102", 7777);
-        stream4.print("4");
-
-        env.execute();
+        while (running) {
+            ctx.collect(new Event(
+                    users[random.nextInt(users.length)],
+                    urls[random.nextInt(urls.length)],
+                    Calendar.getInstance().getTimeInMillis()
+            ));
+            // 隔1秒生成一个点击事件，方便观察
+            Thread.sleep(1000);
+        }
     }
+
+    @Override
+    public void cancel() {
+        running = false;
+    }
+
+
 }
